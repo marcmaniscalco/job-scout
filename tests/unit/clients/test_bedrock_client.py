@@ -32,9 +32,9 @@ def canned_response(
                             "name": "record_fit_assessment",
                             "input": {
                                 "job_fit": job_fit
-                                or {"score": 80, "reasoning": "Good"},
+                                or {"rating": "Good", "reasoning": "Good"},
                                 "compensation_fit": compensation_fit
-                                or {"score": 60, "reasoning": "Meh"},
+                                or {"rating": "OK", "reasoning": "Meh"},
                             },
                         }
                     }
@@ -51,9 +51,36 @@ def test_assess_fit_parses_tool_use_input():
 
     result = client.assess_fit("resume text", jd_event)
 
-    assert result["job_fit"]["score"] == 80
-    assert result["compensation_fit"]["score"] == 60
+    assert result["job_fit"]["rating"] == "Good"
+    assert result["compensation_fit"]["rating"] == "OK"
     mock_runtime.converse.assert_called_once()
+
+
+def test_assess_fit_includes_comp_baseline_in_system_prompt():
+    with patch("job_scout.clients.bedrock_client.boto3.client") as boto_client:
+        mock_runtime = MagicMock()
+        boto_client.return_value = mock_runtime
+        client = BedrockClient(
+            "test-model", "us-east-1", comp_baseline="$180,000 total comp"
+        )
+    mock_runtime.converse.return_value = canned_response()
+    jd_event = JDEvent(job_id="jd-1", title="Engineer", jd_text="text")
+
+    client.assess_fit("resume text", jd_event)
+
+    system_prompt = mock_runtime.converse.call_args.kwargs["system"][0]["text"]
+    assert "$180,000 total comp" in system_prompt
+
+
+def test_assess_fit_without_comp_baseline_omits_personal_number():
+    client, mock_runtime = make_client_with_mock_runtime()
+    mock_runtime.converse.return_value = canned_response()
+    jd_event = JDEvent(job_id="jd-1", title="Engineer", jd_text="text")
+
+    client.assess_fit("resume text", jd_event)
+
+    system_prompt = mock_runtime.converse.call_args.kwargs["system"][0]["text"]
+    assert "No personal compensation baseline is configured" in system_prompt
 
 
 def test_assess_fit_raises_when_stop_reason_is_not_tool_use():

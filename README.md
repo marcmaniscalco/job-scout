@@ -20,6 +20,22 @@ DynamoDB. Built to eventually integrate with a sibling project,
 See `template.yaml` for the full infrastructure and
 `src/job_scout/handler.py` for the processing flow.
 
+## Evaluation methodology
+
+Each JD is rated independently — never compared or ranked against
+other JDs — on a five-tier scale: **Strong, Good, OK, Fair, Weak**.
+
+- **job_fit** weights required/must-have skills heavily; "nice to
+  have" gaps count for much less. The reasoning always separates
+  **Strengths** and **Gaps** into explicitly labeled sections. Company
+  culture is never assessed from posting text/tone alone.
+- **compensation_fit** stays brief: a one-line factual note on the
+  posted band (if any) plus the tier rating — not a multi-paragraph
+  comp breakdown. See `CompBaseline` below for rating it against a
+  personal target.
+
+The full prompt logic lives in `src/job_scout/assessment/prompts.py`.
+
 ## What's not built yet
 
 - **Distance/commute fit** — a third scoring dimension weighing your
@@ -100,6 +116,27 @@ Haiku in your target region. If you switch to a different model,
 check whether it requires an inference-profile ID (`us.anthropic...`)
 rather than a bare model ID, since Bedrock's on-demand invocation for
 newer models often requires the profile form.
+
+### Personal compensation baseline
+
+`CompBaseline` (e.g. `"$180,000 total comp"`) is an optional
+`NoEcho` parameter used to rate `compensation_fit` against your own
+target instead of just judging the posted band in isolation. It
+defaults to empty — omit it and compensation is rated on the posted
+band alone.
+
+**This repo is public, so the real value must never be committed.**
+Don't add it to `samconfig.toml` or any other tracked file — pass it
+only via `--parameter-overrides` at deploy time:
+
+```bash
+sam deploy --parameter-overrides ResumeObjectKey=resume.docx CompBaseline="$180,000 total comp"
+```
+
+Every deploy that doesn't pass it explicitly resets it back to empty
+(CloudFormation doesn't remember `NoEcho` parameters across deploys
+the way `samconfig.toml`-stored ones are remembered), so you'll need
+to include it each time you deploy if you want it active.
 
 ## Sending a test JD
 

@@ -22,7 +22,7 @@ class FitAssessor:
 
     def _to_fit_assessment(self, raw: dict) -> FitAssessment:
         return FitAssessment(
-            score=int(raw["score"]),
+            rating=raw["rating"],
             reasoning=raw["reasoning"],
             model_id=self._model_id,
         )

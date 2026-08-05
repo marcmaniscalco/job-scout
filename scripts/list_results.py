@@ -59,7 +59,7 @@ def _fit_summary(item: dict[str, Any], key: str) -> str:
     fit = item.get(key)
     if not fit:
         return "-"
-    return f"{fit.get('score')}"
+    return f"{fit.get('rating')}"
 
 
 def format_table(items: list[dict[str, Any]]) -> str:

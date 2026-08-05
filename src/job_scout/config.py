@@ -12,6 +12,7 @@ class Settings:
     resume_object_key: str
     bedrock_model_id: str
     aws_region: str
+    comp_baseline: str | None
 
 
 @lru_cache
@@ -24,4 +25,5 @@ def get_settings() -> Settings:
         aws_region=os.environ.get(
             "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
         ),
+        comp_baseline=os.environ.get("COMP_BASELINE") or None,
     )

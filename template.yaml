@@ -15,6 +15,17 @@ Parameters:
     Type: String
     Default: resume.txt
     Description: Key of the resume object in the resume bucket.
+  CompBaseline:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: >
+      Optional personal compensation baseline (e.g. "$180,000 total
+      comp") used to rate compensation_fit. Defaults to empty (rated
+      without a personal baseline) so deploys work without it. To set
+      a real value, pass it via --parameter-overrides at deploy time
+      only — never put it in samconfig.toml or any other committed
+      file, since this repo is public.
 
 Globals:
   Function:
@@ -103,6 +114,7 @@ Resources:
           RESUME_BUCKET: !Ref ResumeBucket
           RESUME_OBJECT_KEY: !Ref ResumeObjectKey
           BEDROCK_MODEL_ID: !Ref BedrockModelId
+          COMP_BASELINE: !Ref CompBaseline
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable

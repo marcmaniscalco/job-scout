@@ -38,7 +38,9 @@ def get_resume_store() -> S3ResumeStore:
 def get_fit_assessor() -> FitAssessor:
     settings = get_settings()
     bedrock_client = BedrockClient(
-        settings.bedrock_model_id, settings.aws_region
+        settings.bedrock_model_id,
+        settings.aws_region,
+        settings.comp_baseline,
     )
     return FitAssessor(bedrock_client, settings.bedrock_model_id)
 

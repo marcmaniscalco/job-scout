@@ -2,7 +2,9 @@ from job_scout.models import FitAssessment, JobRecord, JobStatus
 
 
 def test_fit_assessment_round_trip():
-    fit = FitAssessment(score=85, reasoning="Strong match", model_id="m1")
+    fit = FitAssessment(
+        rating="Strong", reasoning="Strong match", model_id="m1"
+    )
     assert FitAssessment.from_item(fit.to_item()) == fit
 
 
@@ -27,9 +29,11 @@ def test_job_record_round_trip_without_fit_results():
 
 
 def test_job_record_round_trip_with_fit_results():
-    job_fit = FitAssessment(score=90, reasoning="Great fit", model_id="m1")
+    job_fit = FitAssessment(
+        rating="Strong", reasoning="Great fit", model_id="m1"
+    )
     compensation_fit = FitAssessment(
-        score=60, reasoning="Below market", model_id="m1"
+        rating="Fair", reasoning="Below market", model_id="m1"
     )
     record = JobRecord(
         job_id="abc",

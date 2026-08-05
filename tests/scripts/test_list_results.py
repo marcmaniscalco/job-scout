@@ -19,9 +19,9 @@ def seed_items(jobs_table):
             "title": "A",
             "company": "Acme",
             "created_at": "2026-01-01",
-            "job_fit": {"score": 80, "reasoning": "x", "model_id": "m"},
+            "job_fit": {"rating": "Good", "reasoning": "x", "model_id": "m"},
             "compensation_fit": {
-                "score": 50,
+                "rating": "Fair",
                 "reasoning": "y",
                 "model_id": "m",
             },
@@ -67,23 +67,23 @@ def test_format_table_handles_empty_results():
     assert format_table([]) == "No results."
 
 
-def test_format_table_includes_fit_scores():
+def test_format_table_includes_fit_ratings():
     items = [
         {
             "job_id": "jd-1",
             "status": "COMPLETED",
             "title": "A",
             "company": "Acme",
-            "job_fit": {"score": 80},
-            "compensation_fit": {"score": 50},
+            "job_fit": {"rating": "Good"},
+            "compensation_fit": {"rating": "Fair"},
             "created_at": "t0",
         }
     ]
 
     output = format_table(items)
 
-    assert "80" in output
-    assert "50" in output
+    assert "Good" in output
+    assert "Fair" in output
 
 
 def test_format_json_round_trips():
@@ -98,8 +98,8 @@ def test_write_csv_writes_expected_rows(tmp_path):
             "status": "COMPLETED",
             "title": "A",
             "company": "Acme",
-            "job_fit": {"score": 80},
-            "compensation_fit": {"score": 50},
+            "job_fit": {"rating": "Good"},
+            "compensation_fit": {"rating": "Fair"},
             "created_at": "t0",
         }
     ]
@@ -110,7 +110,7 @@ def test_write_csv_writes_expected_rows(tmp_path):
     with open(path, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     assert rows[0]["job_id"] == "jd-1"
-    assert rows[0]["job_fit"] == "80"
+    assert rows[0]["job_fit"] == "Good"
 
 
 def test_main_prints_table_output(jobs_table, capsys):

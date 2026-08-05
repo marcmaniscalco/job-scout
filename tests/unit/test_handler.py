@@ -35,10 +35,10 @@ def mock_fit_assessor():
         assessor = MagicMock()
         assessor.assess.return_value = {
             "job_fit": FitAssessment(
-                score=80, reasoning="Good", model_id="m1"
+                rating="Good", reasoning="Good", model_id="m1"
             ),
             "compensation_fit": FitAssessment(
-                score=60, reasoning="Meh", model_id="m1"
+                rating="OK", reasoning="Meh", model_id="m1"
             ),
         }
         get_assessor.return_value = assessor
@@ -127,9 +127,11 @@ def test_multiple_records_only_failing_one_is_reported(
 ):
     mock_fit_assessor.assess.side_effect = [
         {
-            "job_fit": FitAssessment(score=80, reasoning="ok", model_id="m"),
+            "job_fit": FitAssessment(
+                rating="Good", reasoning="ok", model_id="m"
+            ),
             "compensation_fit": FitAssessment(
-                score=60, reasoning="ok", model_id="m"
+                rating="OK", reasoning="ok", model_id="m"
             ),
         },
         BedrockAssessmentError("boom"),

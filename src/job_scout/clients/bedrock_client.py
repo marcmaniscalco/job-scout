@@ -5,9 +5,9 @@ from typing import Any
 import boto3
 
 from job_scout.assessment.prompts import (
-    SYSTEM_PROMPT,
     TOOL_NAME,
     TOOL_SPEC,
+    build_system_prompt,
     build_user_message,
 )
 from job_scout.models import JDEvent
@@ -18,16 +18,22 @@ class BedrockAssessmentError(Exception):
 
 
 class BedrockClient:
-    def __init__(self, model_id: str, region_name: str | None = None):
+    def __init__(
+        self,
+        model_id: str,
+        region_name: str | None = None,
+        comp_baseline: str | None = None,
+    ):
         self._model_id = model_id
         self._client = boto3.client("bedrock-runtime", region_name=region_name)
+        self._system_prompt = build_system_prompt(comp_baseline)
 
     def assess_fit(
         self, resume_text: str, jd_event: JDEvent
     ) -> dict[str, Any]:
         response = self._client.converse(
             modelId=self._model_id,
-            system=[{"text": SYSTEM_PROMPT}],
+            system=[{"text": self._system_prompt}],
             messages=[
                 {
                     "role": "user",

@@ -35,15 +35,17 @@ def test_mark_completed_stores_fit_results(jobs_table):
     repo = make_repository()
     jd_event = JDEvent(job_id="jd-1", title="Engineer", jd_text="text")
     repo.create_received_record(jd_event)
-    job_fit = FitAssessment(score=80, reasoning="Good", model_id="m1")
-    compensation_fit = FitAssessment(score=50, reasoning="Low", model_id="m1")
+    job_fit = FitAssessment(rating="Good", reasoning="Good", model_id="m1")
+    compensation_fit = FitAssessment(
+        rating="Fair", reasoning="Low", model_id="m1"
+    )
 
     repo.mark_completed("jd-1", job_fit, compensation_fit)
 
     item = jobs_table.get_item(Key={"job_id": "jd-1"})["Item"]
     assert item["status"] == JobStatus.COMPLETED
-    assert item["job_fit"]["score"] == 80
-    assert item["compensation_fit"]["score"] == 50
+    assert item["job_fit"]["rating"] == "Good"
+    assert item["compensation_fit"]["rating"] == "Fair"
 
 
 def test_mark_failed_stores_error_message(jobs_table):

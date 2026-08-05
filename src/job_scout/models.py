@@ -31,13 +31,13 @@ class JDEvent:
 
 @dataclass(frozen=True)
 class FitAssessment:
-    score: int
+    rating: str
     reasoning: str
     model_id: str
 
     def to_item(self) -> dict[str, Any]:
         return {
-            "score": self.score,
+            "rating": self.rating,
             "reasoning": self.reasoning,
             "model_id": self.model_id,
         }
@@ -45,7 +45,7 @@ class FitAssessment:
     @classmethod
     def from_item(cls, item: dict[str, Any]) -> "FitAssessment":
         return cls(
-            score=int(item["score"]),
+            rating=item["rating"],
             reasoning=item["reasoning"],
             model_id=item["model_id"],
         )
