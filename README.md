@@ -67,10 +67,22 @@ the build (see `template.yaml`'s `BuildMethod: makefile` and the
 `build-JobScoutFunction` target in the `Makefile`), entirely inside
 the ephemeral build container.
 
-After the first deploy, upload your resume (never commit it):
+After the first deploy, upload your resume (never commit it). Both
+plain text and `.docx` are supported — the object key's extension
+decides how it's read, so a `.docx` upload is parsed (paragraphs and
+table cells) rather than treated as raw text:
 
 ```bash
 aws s3 cp resume.txt s3://<ResumeBucketName>/resume.txt
+# or, for a Word doc:
+aws s3 cp resume.docx s3://<ResumeBucketName>/resume.docx
+```
+
+If you upload a `.docx`, redeploy with the matching
+`ResumeObjectKey` parameter so the Lambda looks for the right key:
+
+```bash
+sam deploy --parameter-overrides ResumeObjectKey=resume.docx
 ```
 
 `<ResumeBucketName>` is a stack output — see `sam list stack-outputs

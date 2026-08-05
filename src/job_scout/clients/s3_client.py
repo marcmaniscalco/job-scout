@@ -5,7 +5,10 @@ handler.get_resume_store), so the resume is fetched from S3 at most
 once per container instead of once per invocation.
 """
 
+import io
+
 import boto3
+from docx import Document
 
 
 class S3ResumeStore:
@@ -22,5 +25,21 @@ class S3ResumeStore:
             response = self._client.get_object(
                 Bucket=self._bucket, Key=self._object_key
             )
-            self._cached_text = response["Body"].read().decode("utf-8")
+            content = response["Body"].read()
+            if self._object_key.lower().endswith(".docx"):
+                self._cached_text = self._extract_docx_text(content)
+            else:
+                self._cached_text = content.decode("utf-8")
         return self._cached_text
+
+    @staticmethod
+    def _extract_docx_text(content: bytes) -> str:
+        document = Document(io.BytesIO(content))
+        paragraphs = [p.text for p in document.paragraphs]
+        # Resumes often use tables for layout (e.g. skills lists), so
+        # pull cell text too rather than silently dropping it.
+        for table in document.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    paragraphs.append(cell.text)
+        return "\n".join(p for p in paragraphs if p.strip())
