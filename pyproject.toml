@@ -16,6 +16,11 @@ dev = [
     "ruff>=0.8",
     "pre-commit>=4.0",
     "detect-secrets>=1.5",
+    # Needed locally to use the "aws login" (browser-based root/IAM
+    # Identity Center-less) credential provider from scripts/*.py.
+    # Not needed by the deployed Lambda, which uses its execution
+    # role's container credential provider instead — dev-only.
+    "botocore[crt]>=1.35",
 ]
 
 [build-system]
