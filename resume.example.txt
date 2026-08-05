@@ -1,0 +1,7 @@
+This is a placeholder. Replace with your real resume as plain text
+and upload it to the ResumeBucket created by the SAM stack:
+
+    aws s3 cp resume.txt s3://<ResumeBucketName>/resume.txt
+
+Never commit your real resume to this repository — resume.txt is
+gitignored for that reason.

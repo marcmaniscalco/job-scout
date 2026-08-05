@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# uv / venv
+.venv/
+venv/
+
+# SAM
+.aws-sam/
+samconfig.local.toml
+
+# Generated from uv.lock at build time (see Makefile / template.yaml BuildMethod)
+src/requirements.txt
+
+# IDE
+.idea/
+.vscode/
+
+# Secrets / personal data — never commit
+resume.txt
+.env
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db

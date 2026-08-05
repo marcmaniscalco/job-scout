@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  job-scout: SQS-triggered Lambda that scores job descriptions for fit
+  against a resume using AWS Bedrock, persisting results in DynamoDB.
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: >
+      Bedrock model (or cross-region inference profile) ID used for fit
+      assessment. Defaults to Claude Haiku, the cheapest current tier.
+  ResumeObjectKey:
+    Type: String
+    Default: resume.txt
+    Description: Key of the resume object in the resume bucket.
+
+Globals:
+  Function:
+    Timeout: 90
+    MemorySize: 256
+    Runtime: python3.14
+
+Resources:
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusCreatedAtIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  ResumeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  JdDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  JdQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 540 # 6x the function timeout, per AWS guidance
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt JdDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  JobScoutFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-job-scout
+      RetentionInDays: 14
+
+  JobScoutFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      # Custom build: generates src/requirements.txt from uv.lock and
+      # installs it, so `sam build` alone is enough (no separate
+      # `make requirements` step). See the `build-JobScoutFunction`
+      # target in the root Makefile. Requires CodeUri: . so the
+      # Makefile (and pyproject.toml/uv.lock it depends on) are
+      # visible inside the build container.
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-job-scout
+      CodeUri: .
+      Handler: job_scout.handler.lambda_handler
+      LoggingConfig:
+        LogGroup: !Ref JobScoutFunctionLogGroup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref JobsTable
+          RESUME_BUCKET: !Ref ResumeBucket
+          RESUME_OBJECT_KEY: !Ref ResumeObjectKey
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+        - S3ReadPolicy:
+            BucketName: !Ref ResumeBucket
+        - Statement:
+            - Sid: BedrockInvokeFitAssessmentModel
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource:
+                - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${BedrockModelId}
+                - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.*
+      Events:
+        JdQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt JdQueue.Arn
+            BatchSize: 5
+            MaximumBatchingWindowInSeconds: 0
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+Outputs:
+  JobsTableName:
+    Value: !Ref JobsTable
+  JdQueueUrl:
+    Value: !Ref JdQueue
+  ResumeBucketName:
+    Value: !Ref ResumeBucket
+  JobScoutFunctionName:
+    Value: !Ref JobScoutFunction

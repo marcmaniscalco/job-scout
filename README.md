@@ -1,0 +1,127 @@
+# job-scout
+
+An AWS serverless pipeline that scores job descriptions (JDs) for fit
+against your resume using AWS Bedrock. Drop a JD onto an SQS queue, a
+Lambda runs it through Bedrock, and the scored result lands in
+DynamoDB. Built to eventually integrate with a sibling project,
+`job-hunter`, which will publish JD events automatically.
+
+## How it works
+
+1. A JSON message describing a job (title, JD text, optionally
+   company/location/salary/url) is sent to the `JdQueue` SQS queue.
+2. The `job-scout` Lambda is triggered, fetches your resume from S3,
+   and calls Bedrock (Claude, via the Converse API) to score the JD
+   on two dimensions: **job fit** and **compensation fit**.
+3. The result — including the model's reasoning — is written to the
+   `JobsTable` DynamoDB table.
+4. You view results with `scripts/list_results.py`.
+
+See `template.yaml` for the full infrastructure and
+`src/job_scout/handler.py` for the processing flow.
+
+## What's not built yet
+
+- **Distance/commute fit** — a third scoring dimension weighing your
+  home address against the job's location and in-office days/week.
+  `in_office_days_per_week` is already accepted and stored on JD
+  events, but not processed. Home-address config for this is planned
+  to live in SSM Parameter Store, not yet created.
+- **job-hunter integration** — no automatic JD ingestion yet; JDs are
+  sent manually via `scripts/send_test_jd.py`.
+- Any HTTP API/UI beyond the `scripts/list_results.py` CLI.
+
+## Setup
+
+Requires `uv` (installed) and the AWS SAM CLI.
+
+```bash
+uv sync                 # create the venv and install dependencies
+uv run pre-commit install
+```
+
+## Local checks
+
+```bash
+make lint        # ruff check
+make format       # ruff format
+make test         # pytest (uses moto to mock AWS)
+make precommit     # full pre-commit suite, incl. secrets scan
+```
+
+## Deploying
+
+This project targets the Lambda `python3.14` managed runtime. Local
+dev may run on an older Python (SAM builds against the real runtime
+via a container, see below), but the code avoids anything Python
+3.14-specific.
+
+```bash
+make build         # sam build --use-container (matches the Lambda runtime)
+make deploy        # sam deploy
+```
+
+`src/requirements.txt` doesn't need to exist beforehand and isn't
+committed — `sam build` generates it itself from `uv.lock` as part of
+the build (see `template.yaml`'s `BuildMethod: makefile` and the
+`build-JobScoutFunction` target in the `Makefile`), entirely inside
+the ephemeral build container.
+
+After the first deploy, upload your resume (never commit it):
+
+```bash
+aws s3 cp resume.txt s3://<ResumeBucketName>/resume.txt
+```
+
+`<ResumeBucketName>` is a stack output — see `sam list stack-outputs
+--stack-name job-scout`.
+
+### Bedrock model access
+
+The default `BedrockModelId` parameter points at Claude Haiku's
+cross-region inference profile
+(`us.anthropic.claude-haiku-4-5-20251001-v1:0`), the cheapest current
+tier — this project prioritizes low cost over raw model quality since
+it's a self-funded home project. Before your first deploy, confirm in
+the Bedrock console that you have model access enabled for Claude
+Haiku in your target region. If you switch to a different model,
+check whether it requires an inference-profile ID (`us.anthropic...`)
+rather than a bare model ID, since Bedrock's on-demand invocation for
+newer models often requires the profile form.
+
+## Sending a test JD
+
+```bash
+python scripts/send_test_jd.py \
+  --queue-url <JdQueueUrl> \
+  --title "Senior Backend Engineer" \
+  --company "Acme Corp" \
+  --location "Remote - US" \
+  --salary "\$160k-\$190k" \
+  --jd-file path/to/jd.txt
+```
+
+## Viewing results
+
+```bash
+python scripts/list_results.py --table-name <JobsTableName> --status COMPLETED
+python scripts/list_results.py --table-name <JobsTableName> --format json
+python scripts/list_results.py --table-name <JobsTableName> --format csv --export results.csv
+```
+
+## Cost notes
+
+This is a solo, out-of-pocket project, so free tier is prioritized
+over efficiency throughout:
+
+- Lambda, SQS, and S3 usage at this volume falls within AWS's
+  perpetual free tiers.
+- DynamoDB uses on-demand (`PAY_PER_REQUEST`) billing — not literally
+  free like 25/25-provisioned capacity, but sub-cent/month at this
+  volume, and simpler to operate.
+- The Lambda's CloudWatch log group has 14-day retention so log
+  storage cost doesn't grow unbounded.
+- **Bedrock has no free tier** and is the real cost center — the
+  default model is Claude Haiku for that reason. Swap
+  `BedrockModelId` to a larger model only if scoring quality warrants
+  the extra cost.
